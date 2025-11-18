@@ -1,0 +1,779 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Simple Blog Platform</title>
+  <style>
+    /* Reset & base */
+    :root{
+      --max-width:1100px;
+      --accent:#0b71f4;
+      --muted:#6b7280;
+      --card:#ffffff;
+      --bg:#f5f7fb;
+      --radius:12px;
+      --shadow: 0 6px 18px rgba(9,30,66,0.08);
+      --glass: rgba(255,255,255,0.6);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: linear-gradient(180deg,#f7fbff 0%, var(--bg) 100%);
+      color:#0f1724;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      padding:24px;
+      display:flex;
+      justify-content:center;
+    }
+    .container{
+      width:100%;
+      max-width:var(--max-width);
+    }
+
+    header{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:18px;
+    }
+    .brand{
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+    .logo{
+      width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,var(--accent), #7ec8ff);
+      display:flex;align-items:center;justify-content:center;color:white;font-weight:700;box-shadow:var(--shadow);
+      font-family:monospace;
+    }
+    h1{font-size:18px;margin:0}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+
+    .controls{
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+    button, .btn {
+      background:var(--accent);
+      color:white;
+      border:0;
+      padding:10px 14px;
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:600;
+      box-shadow: var(--shadow);
+    }
+    button.ghost{
+      background:transparent;color:var(--accent);border:1px solid rgba(11,113,244,0.14);
+      box-shadow:none;font-weight:600;
+    }
+    .search {
+      display:flex;gap:8px;align-items:center;background:var(--card);padding:8px;border-radius:10px;box-shadow:var(--shadow);
+    }
+    .search input{
+      border:0;outline:none;font-size:14px;width:220px;background:transparent;
+    }
+
+    main {
+      display:grid;
+      grid-template-columns: 1fr 360px;
+      gap:18px;
+      align-items:start;
+    }
+
+    /* Post list */
+    .posts {
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px,1fr));
+      gap:14px;
+    }
+    .post-card{
+      background:var(--card);
+      border-radius:12px;
+      padding:14px;
+      box-shadow:var(--shadow);
+      display:flex;flex-direction:column;gap:10px;
+      min-height:140px;
+    }
+    .post-card h3{margin:0;font-size:16px}
+    .meta{color:var(--muted);font-size:12px;display:flex;gap:8px;align-items:center;}
+    .excerpt{color:#253047;font-size:13px;flex:1}
+    .tags{display:flex;gap:6px;flex-wrap:wrap}
+    .tag{font-size:12px;padding:6px 8px;border-radius:999px;background:#f1f5f9;color:#334155}
+
+    .post-actions{display:flex;gap:8px;justify-content:flex-end}
+
+    aside.panel{
+      background:var(--card);
+      border-radius:12px;padding:14px;box-shadow:var(--shadow);
+      position:sticky;top:24px;height:fit-content;
+    }
+    .panel h4{margin:0 0 10px 0}
+    .filter-tags{display:flex;flex-wrap:wrap;gap:8px}
+
+    /* Modal / editor */
+    .overlay{position:fixed;inset:0;background:rgba(8,12,20,0.35);display:none;align-items:center;justify-content:center;padding:20px;z-index:40}
+    .overlay.show{display:flex}
+    .modal{
+      width:100%;max-width:920px;background:linear-gradient(180deg,white, var(--glass));backdrop-filter: blur(6px);
+      border-radius:12px;padding:18px;box-shadow:0 30px 60px rgba(15,23,36,0.25);max-height:92vh;overflow:auto;
+    }
+    label{display:block;margin-top:10px;font-size:13px;color:var(--muted)}
+    input[type="text"], textarea {
+      width:100%;padding:10px 12px;border-radius:8px;border:1px solid #e6eefc;outline:none;font-size:14px;margin-top:6px;
+      background:transparent;
+    }
+    textarea{min-height:160px;resize:vertical}
+    .row{display:flex;gap:12px}
+    .row .col{flex:1}
+
+    /* post view */
+    .post-view{
+      background:var(--card);border-radius:12px;padding:18px;box-shadow:var(--shadow);
+    }
+    .post-view h2{margin:0 0 6px 0}
+    .post-content{color:#24303f;line-height:1.6;padding-top:6px}
+
+    /* responsive */
+    @media (max-width:980px){
+      main{grid-template-columns:1fr}
+      .search input{width:140px}
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="app">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true">SB</div>
+        <div>
+          <h1>Simple Blog</h1>
+          <p class="lead">A tiny, local-first blog demo — create, edit, search, and share.</p>
+        </div>
+      </div>
+
+      <div class="controls" role="region" aria-label="controls">
+        <div class="search" aria-hidden="false">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21 21l-4.35-4.35" stroke="#6b7280" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="11" cy="11" r="6" stroke="#6b7280" stroke-width="1.5"></circle></svg>
+          <input id="searchInput" placeholder="Search title or content..." aria-label="Search posts" />
+        </div>
+        <button id="newBtn" class="btn">+ New Post</button>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+          <div style="color:var(--muted);font-size:13px">Showing <span id="count">0</span> posts</div>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+            <label style="font-size:13px;color:var(--muted)">Sort:</label>
+            <select id="sortSelect" aria-label="Sort posts" style="padding:8px;border-radius:8px;border:1px solid #e6eefc">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="title">Title (A–Z)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="posts" id="postsList" aria-live="polite">
+          <!-- post cards -->
+        </div>
+      </section>
+
+      <aside class="panel" aria-labelledby="panelTitle">
+        <h4 id="panelTitle">Filters & Quick Actions</h4>
+
+        <div style="margin-bottom:12px">
+          <label for="tagInput">Add quick tag filter</label>
+          <input id="tagInput" placeholder="type tag and press Enter" />
+        </div>
+
+        <div style="margin-bottom:12px">
+          <div style="display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="color:var(--muted)">Tags</div>
+            <button id="clearFilters" class="ghost" style="padding:6px 8px">Clear</button>
+          </div>
+          <div class="filter-tags" id="tagList"></div>
+        </div>
+
+        <div style="margin-top:10px">
+          <h5 style="margin:0 0 8px 0;color:var(--muted)">Pro tip</h5>
+          <p style="margin:0;font-size:13px;color:#334155">This is a demo app — posts are saved locally in your browser storage (no server).</p>
+        </div>
+      </aside>
+    </main>
+
+    <!-- Modal: Editor -->
+    <div class="overlay" id="editorOverlay" role="dialog" aria-modal="true" aria-hidden="true">
+      <div class="modal" role="document" aria-labelledby="editorTitle">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+          <div>
+            <h3 id="editorTitle">New Post</h3>
+            <p class="lead" style="margin-top:4px">Write your post (supports simple Markdown: #, ##, **bold**, *italics*, [link](url), lists).</p>
+          </div>
+          <div>
+            <button class="ghost" id="closeEditor">Cancel</button>
+            <button class="btn" id="savePostBtn">Save</button>
+          </div>
+        </div>
+
+        <form id="postForm" style="margin-top:12px" onsubmit="return false;">
+          <label for="title">Title</label>
+          <input id="title" type="text" required maxlength="200" placeholder="Post title" />
+
+          <div class="row">
+            <div class="col">
+              <label for="tags">Tags (comma separated)</label>
+              <input id="tags" placeholder="e.g. javascript, life, travel" />
+            </div>
+            <div style="width:170px">
+              <label for="author">Author</label>
+              <input id="author" placeholder="Your name" />
+            </div>
+          </div>
+
+          <label for="content">Content</label>
+          <textarea id="content" placeholder="Write Markdown-style content here..." required></textarea>
+
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+            <button class="ghost" id="previewBtn">Toggle Preview</button>
+            <button class="btn" id="saveBtn">Save Post</button>
+          </div>
+
+          <div id="previewArea" style="margin-top:12px;display:none">
+            <label style="color:var(--muted)">Preview</label>
+            <div class="post-view" id="previewContent" aria-live="polite"></div>
+          </div>
+
+          <input type="hidden" id="editingId" value="">
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal: Post view -->
+    <div class="overlay" id="viewOverlay" role="dialog" aria-modal="true" aria-hidden="true">
+      <div class="modal" role="document" aria-labelledby="viewTitle">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+          <div>
+            <h3 id="viewTitle">Post</h3>
+            <p class="lead" style="margin-top:4px" id="viewMeta"></p>
+          </div>
+          <div>
+            <button class="ghost" id="closeView">Close</button>
+            <button class="btn" id="editFromView">Edit</button>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <div class="post-view" id="fullPostContent"></div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+            <button class="ghost" id="deleteFromView">Delete</button>
+            <button class="btn" id="shareBtn">Copy Link</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    /**********************
+     * Simple Blog Frontend
+     * - LocalStorage-based posts
+     * - Create/Edit/Delete
+     * - Search, Sort, Tag filter
+     * - Basic Markdown renderer (safe)
+     **********************/
+
+    // Storage key
+    const STORAGE_KEY = 'simple_blog_posts_v1';
+
+    // Utilities
+    function uid(len=8){
+      return Math.random().toString(36).slice(2,2+len);
+    }
+    function nowISO(){ return new Date().toISOString(); }
+    function formatDate(iso){
+      const d = new Date(iso);
+      return d.toLocaleString(undefined, {dateStyle:'medium', timeStyle:'short'});
+    }
+    function escapeHTML(str){
+      if(!str) return '';
+      return str
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'",'&#39;');
+    }
+    function slugify(s){
+      return (s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+    }
+
+    // Simple markdown-ish renderer (safe -> uses escaped HTML then replaces patterns)
+    function renderMarkdown(text){
+      if(!text) return '';
+      // Escape first
+      let html = escapeHTML(text);
+
+      // Code blocks: ```...``` -> <pre><code>...</code></pre>
+      html = html.replace(/```([\s\S]*?)```/g, (m, code) => {
+        return '<pre><code>' + escapeHTML(code) + '</code></pre>';
+      });
+
+      // Headings: ## ... or # ...
+      html = html.replace(/^###### (.*)$/gm, '<h6>$1</h6>');
+      html = html.replace(/^##### (.*)$/gm, '<h5>$1</h5>');
+      html = html.replace(/^#### (.*)$/gm, '<h4>$1</h4>');
+      html = html.replace(/^### (.*)$/gm, '<h3>$1</h3>');
+      html = html.replace(/^## (.*)$/gm, '<h2>$1</h2>');
+      html = html.replace(/^# (.*)$/gm, '<h1>$1</h1>');
+
+      // Bold **text**
+      html = html.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
+      // Italic *text*
+      html = html.replace(/\*([^\*]+)\*/g, '<em>$1</em>');
+
+      // Links [text](url)
+      html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+      // Unordered lists: lines starting with - or *
+      html = html.replace(/(^|\n)[ \t]*[-\*] (.+)/g, '$1<li>$2</li>');
+      // wrap close li into ul
+      html = html.replace(/(<li>[\s\S]+?<\/li>)/g, (m) => {
+        // If multiple li in a row, group them
+        return m;
+      });
+      // Convert repeated <li> sequences into a <ul> block
+      html = html.replace(/(?:\n|^)(<li>[\s\S]+?<\/li>)(?:\n|$)/g, function(m, p1, offset, s){
+        // find sequences of <li>...</li>
+        // We'll convert contiguous lis into ul by using a global replace later
+        return '\n' + p1 + '\n';
+      });
+      // Now group all sequences of li into ul
+      html = html.replace(/(?:\n)*(<li>[\s\S]+?<\/li>)(\s*(<li>[\s\S]+?<\/li>))*+/g, function(m){
+        // wrap matched lis in <ul>
+        const lis = m.trim();
+        if(!lis) return m;
+        // ensure we don't double-wrap headings etc; only wrap contiguous lis
+        if(!lis.startsWith('<li>')) return m;
+        return '<ul>' + lis + '</ul>';
+      });
+
+      // Paragraphs: wrap lines separated by blank with <p>, but keep other tags intact.
+      // We'll split on double newlines and wrap blocks that aren't already block-level (h1-h6, ul, pre)
+      const blocks = html.split(/\n{2,}/g).map(block => {
+        const t = block.trim();
+        if(!t) return '';
+        if(/^<(h|ul|pre|blockquote|ol|li|code)/i.test(t)) return t;
+        // if already a block element, leave it
+        if(/^<(h[1-6]|ul|pre|blockquote)/i.test(t)) return t;
+        // otherwise wrap in p
+        return '<p>' + t.replace(/\n/g,'<br>') + '</p>';
+      });
+      html = blocks.join('\n');
+
+      return html;
+    }
+
+    // Storage functions
+    function loadPosts(){
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if(!raw) return [];
+        const parsed = JSON.parse(raw);
+        if(!Array.isArray(parsed)) return [];
+        return parsed;
+      }catch(e){
+        console.error('Failed to load posts', e);
+        return [];
+      }
+    }
+    function savePosts(posts){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
+    }
+
+    // Default sample posts (only added if storage empty)
+    function samplePosts(){
+      return [
+        {
+          id: uid(10),
+          slug: 'welcome-to-simple-blog',
+          title: 'Welcome to Simple Blog',
+          content: '# Hello 👋\n\nThis is a demo post. Edit or delete it, or create your own posts. Use **bold**, *italics*, lists, and links: [OpenAI](https://openai.com).\n\n- Local-first storage\n- No server required\n\nEnjoy!',
+          tags: ['demo','welcome'],
+          author: 'Admin',
+          createdAt: nowISO(),
+          updatedAt: nowISO()
+        },
+        {
+          id: uid(10),
+          slug: 'tips-for-writing',
+          title: 'Tips for Writing Short Posts',
+          content: '## Keep it short\n\nPeople like fast, scannable content. Use headings, lists, and small paragraphs.\n\n* Use meaningful titles\n* Add tags to organize\n\nHappy writing!',
+          tags: ['tips','writing'],
+          author: 'Editor',
+          createdAt: nowISO(),
+          updatedAt: nowISO()
+        }
+      ];
+    }
+
+    // App state
+    let posts = loadPosts();
+    if(posts.length === 0){
+      posts = samplePosts();
+      savePosts(posts);
+    }
+    let activeFilters = {
+      query: '',
+      tag: ''
+    };
+
+    // Elements
+    const postsList = document.getElementById('postsList');
+    const countEl = document.getElementById('count');
+    const searchInput = document.getElementById('searchInput');
+    const newBtn = document.getElementById('newBtn');
+    const editorOverlay = document.getElementById('editorOverlay');
+    const viewOverlay = document.getElementById('viewOverlay');
+    const closeEditor = document.getElementById('closeEditor');
+    const saveBtn = document.getElementById('saveBtn');
+    const savePostBtn = document.getElementById('savePostBtn');
+    const previewBtn = document.getElementById('previewBtn');
+    const previewArea = document.getElementById('previewArea');
+    const previewContent = document.getElementById('previewContent');
+    const titleInput = document.getElementById('title');
+    const tagsInput = document.getElementById('tags');
+    const authorInput = document.getElementById('author');
+    const contentInput = document.getElementById('content');
+    const editingId = document.getElementById('editingId');
+    const tagList = document.getElementById('tagList');
+    const tagInput = document.getElementById('tagInput');
+    const clearFilters = document.getElementById('clearFilters');
+    const sortSelect = document.getElementById('sortSelect');
+
+    const viewTitle = document.getElementById('viewTitle');
+    const viewMeta = document.getElementById('viewMeta');
+    const fullPostContent = document.getElementById('fullPostContent');
+    const closeView = document.getElementById('closeView');
+    const editFromView = document.getElementById('editFromView');
+    const deleteFromView = document.getElementById('deleteFromView');
+    const shareBtn = document.getElementById('shareBtn');
+
+    // Helpers
+    function getAllTags(){
+      const set = new Set();
+      posts.forEach(p => (p.tags || []).forEach(t => set.add(t.trim())));
+      return Array.from(set).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+    }
+
+    function updateTagPanel(){
+      const tags = getAllTags();
+      tagList.innerHTML = '';
+      tags.forEach(t=>{
+        const btn = document.createElement('button');
+        btn.className = 'tag';
+        btn.textContent = t;
+        btn.setAttribute('aria-pressed', activeFilters.tag===t ? 'true' : 'false');
+        btn.addEventListener('click', ()=>{
+          if(activeFilters.tag === t) activeFilters.tag = '';
+          else activeFilters.tag = t;
+          renderPosts();
+        });
+        tagList.appendChild(btn);
+      });
+    }
+
+    function matchesFilters(post){
+      const q = activeFilters.query.trim().toLowerCase();
+      let match = true;
+      if(q){
+        const hay = (post.title + ' ' + (post.content||'') + ' ' + (post.tags||[]).join(' ')).toLowerCase();
+        match = hay.includes(q);
+      }
+      if(match && activeFilters.tag){
+        match = (post.tags || []).map(x=>x.toLowerCase()).includes(activeFilters.tag.toLowerCase());
+      }
+      return match;
+    }
+
+    function sortPosts(list){
+      const sortBy = sortSelect.value;
+      const out = [...list];
+      if(sortBy === 'newest'){
+        out.sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt));
+      }else if(sortBy === 'oldest'){
+        out.sort((a,b)=> new Date(a.createdAt) - new Date(b.createdAt));
+      }else if(sortBy === 'title'){
+        out.sort((a,b)=> a.title.localeCompare(b.title));
+      }
+      return out;
+    }
+
+    // Render functions
+    function renderPosts(){
+      const filtered = posts.filter(matchesFilters);
+      const sorted = sortPosts(filtered);
+      postsList.innerHTML = '';
+      countEl.textContent = sorted.length;
+      if(sorted.length === 0){
+        postsList.innerHTML = '<div style="grid-column:1/-1;padding:20px;background:linear-gradient(180deg,#fff,#fafafa);border-radius:12px;box-shadow:var(--shadow);text-align:center;color:var(--muted)">No posts found. Click "New Post" to create one.</div>';
+        updateTagPanel();
+        return;
+      }
+      sorted.forEach(p=>{
+        const card = document.createElement('article');
+        card.className='post-card';
+        card.setAttribute('data-id', p.id);
+        card.innerHTML = `
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:start">
+            <div>
+              <h3 tabindex="0" class="post-title">${escapeHTML(p.title)}</h3>
+              <div class="meta">${escapeHTML(p.author || 'Unknown')} • ${formatDate(p.createdAt)}</div>
+            </div>
+            <div style="min-width:64px;text-align:right">
+              <div style="font-size:12px;color:var(--muted)">${(p.tags||[]).slice(0,2).map(t=>escapeHTML(t)).join(', ')}</div>
+            </div>
+          </div>
+          <div class="excerpt">${escapeHTML((p.content||'').slice(0,220))}${(p.content || '').length>220 ? '…' : ''}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+            <div class="tags">${(p.tags||[]).map(t=>`<span class="tag">${escapeHTML(t)}</span>`).join(' ')}</div>
+            <div class="post-actions">
+              <button class="ghost view-btn" data-id="${p.id}">View</button>
+              <button class="ghost edit-btn" data-id="${p.id}">Edit</button>
+              <button class="ghost delete-btn" data-id="${p.id}">Delete</button>
+            </div>
+          </div>
+        `;
+        postsList.appendChild(card);
+      });
+      updateTagPanel();
+    }
+
+    // CRUD
+    function openEditor(mode='new', post=null){
+      editorOverlay.classList.add('show');
+      editorOverlay.setAttribute('aria-hidden','false');
+      if(mode==='new'){
+        document.getElementById('editorTitle').textContent = 'New Post';
+        titleInput.value = '';
+        tagsInput.value = '';
+        authorInput.value = '';
+        contentInput.value = '';
+        editingId.value = '';
+      }else if(post){
+        document.getElementById('editorTitle').textContent = 'Edit Post';
+        titleInput.value = post.title || '';
+        tagsInput.value = (post.tags||[]).join(', ');
+        authorInput.value = post.author || '';
+        contentInput.value = post.content || '';
+        editingId.value = post.id;
+      }
+      previewArea.style.display = 'none';
+      setTimeout(()=> titleInput.focus(), 120);
+    }
+    function closeEditorOverlay(){
+      editorOverlay.classList.remove('show');
+      editorOverlay.setAttribute('aria-hidden','true');
+    }
+
+    function createOrUpdatePost(){
+      const title = titleInput.value.trim();
+      const content = contentInput.value.trim();
+      if(!title || !content){
+        alert('Please provide both a title and content.');
+        return;
+      }
+      const tags = (tagsInput.value || '').split(',').map(t=>t.trim()).filter(Boolean);
+      const author = authorInput.value.trim() || 'Anonymous';
+      const id = editingId.value || uid(10);
+      const slug = slugify(title) || (editingId.value? posts.find(p=>p.id===editingId.value)?.slug : uid(6));
+      const exists = posts.find(p=>p.id===id);
+      if(exists){
+        exists.title = title;
+        exists.content = content;
+        exists.tags = tags;
+        exists.author = author;
+        exists.updatedAt = nowISO();
+      }else{
+        posts.push({
+          id, slug, title, content, tags, author, createdAt: nowISO(), updatedAt: nowISO()
+        });
+      }
+      savePosts(posts);
+      closeEditorOverlay();
+      renderPosts();
+    }
+
+    function openView(postId){
+      const p = posts.find(x=>x.id===postId);
+      if(!p) return;
+      viewTitle.textContent = p.title;
+      viewMeta.textContent = `${p.author || 'Unknown'} • ${formatDate(p.createdAt)}${p.updatedAt && p.updatedAt !== p.createdAt ? ' (updated ' + formatDate(p.updatedAt) + ')' : ''}`;
+      fullPostContent.innerHTML = renderMarkdown(p.content);
+      viewOverlay.classList.add('show');
+      viewOverlay.setAttribute('aria-hidden','false');
+
+      // wire edit/delete actions
+      editFromView.onclick = ()=> {
+        closeViewOverlay();
+        openEditor('edit', p);
+      };
+      deleteFromView.onclick = ()=> {
+        if(confirm('Delete this post? This cannot be undone.')){
+          posts = posts.filter(x=>x.id !== p.id);
+          savePosts(posts);
+          closeViewOverlay();
+          renderPosts();
+        }
+      };
+      shareBtn.onclick = ()=> {
+        // Compose a pseudo link: use window location with hash to identify post
+        const url = location.href.split('#')[0] + '#post=' + encodeURIComponent(p.id);
+        navigator.clipboard?.writeText(url).then(()=> {
+          alert('Link copied to clipboard!');
+        }).catch(()=> {
+          prompt('Copy the link:', url);
+        });
+      };
+    }
+    function closeViewOverlay(){
+      viewOverlay.classList.remove('show');
+      viewOverlay.setAttribute('aria-hidden','true');
+    }
+
+    // Event wiring
+    newBtn.addEventListener('click', ()=> openEditor('new'));
+    closeEditor.addEventListener('click', closeEditorOverlay);
+    closeView.addEventListener('click', closeViewOverlay);
+
+    // Save buttons (two targets to support both header and footer)
+    saveBtn.addEventListener('click', createOrUpdatePost);
+    savePostBtn.addEventListener('click', createOrUpdatePost);
+
+    // Preview toggle
+    previewBtn.addEventListener('click', ()=>{
+      if(previewArea.style.display === 'none' || previewArea.style.display === ''){
+        previewContent.innerHTML = renderMarkdown(contentInput.value);
+        previewArea.style.display = 'block';
+      }else{
+        previewArea.style.display = 'none';
+      }
+    });
+
+    // Posts list actions (delegation)
+    postsList.addEventListener('click', (e)=>{
+      const id = e.target.dataset?.id;
+      if(e.target.classList.contains('view-btn')){
+        openView(id);
+      } else if(e.target.classList.contains('edit-btn')){
+        const p = posts.find(x=>x.id === id);
+        if(p) openEditor('edit', p);
+      } else if(e.target.classList.contains('delete-btn')){
+        if(confirm('Delete this post?')) {
+          posts = posts.filter(x=>x.id !== id);
+          savePosts(posts);
+          renderPosts();
+        }
+      }
+    });
+
+    // Search & filters
+    searchInput.addEventListener('input', (e)=>{
+      activeFilters.query = e.target.value;
+      renderPosts();
+    });
+    tagInput.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        const val = tagInput.value.trim();
+        if(val){
+          activeFilters.tag = val;
+          tagInput.value = '';
+          renderPosts();
+        }
+      }
+    });
+    clearFilters.addEventListener('click', ()=>{
+      activeFilters = {query:'', tag:''};
+      searchInput.value = '';
+      renderPosts();
+    });
+    sortSelect.addEventListener('change', renderPosts);
+
+    // Create/edit via URL hash (sharing)
+    function handleHash(){
+      const hash = location.hash.slice(1);
+      if(!hash) return;
+      const params = new URLSearchParams(hash);
+      if(params.has('post')){
+        const id = params.get('post');
+        const p = posts.find(x=>x.id === id);
+        if(p) openView(id);
+      } else if(params.has('new')){
+        openEditor('new');
+      }
+    }
+    window.addEventListener('hashchange', handleHash);
+
+    // initial render
+    renderPosts();
+    handleHash();
+
+    // keyboard shortcuts (N to create, / to focus search)
+    window.addEventListener('keydown', (e)=>{
+      if(e.key === 'N' || e.key === 'n'){
+        if(document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+          openEditor('new');
+        }
+      } else if(e.key === '/'){
+        if(document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA'){
+          e.preventDefault();
+          searchInput.focus();
+        }
+      } else if(e.key === 'Escape'){
+        // close overlays
+        closeEditorOverlay();
+        closeViewOverlay();
+      }
+    });
+
+    // Accessibility: close modal when overlay is clicked outside modal
+    editorOverlay.addEventListener('click', (e)=>{
+      if(e.target === editorOverlay) closeEditorOverlay();
+    });
+    viewOverlay.addEventListener('click', (e)=>{
+      if(e.target === viewOverlay) closeViewOverlay();
+    });
+
+    // On page load: check if storage empty -> sample posts added earlier.
+    // Save posts periodically to be safe (every 30s)
+    setInterval(()=> savePosts(posts), 30_000);
+
+    // Basic data export/import (console friendly)
+    window.simpleBlogExport = function(){
+      return JSON.stringify(posts, null, 2);
+    };
+    window.simpleBlogImport = function(json){
+      try{
+        const arr = typeof json === 'string' ? JSON.parse(json) : json;
+        if(!Array.isArray(arr)) throw new Error('Invalid data');
+        posts = arr;
+        savePosts(posts);
+        renderPosts();
+        alert('Imported posts');
+      }catch(e){
+        alert('Import failed: ' + e.message);
+      }
+    };
+
+  </script>
+</body>
+</html>
