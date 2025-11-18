@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>RESTful To-Do List — Frontend</title>
+<style>
+  :root{
+    --bg:#0f1724;
+    --card:#0b1220;
+    --muted:#9aa4b2;
+    --accent:#6ee7b7;
+    --danger:#ff7b7b;
+    --glass: rgba(255,255,255,0.03);
+    --radius:12px;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    color-scheme: dark;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    background: linear-gradient(180deg,#071024 0%, #071a2b 60%);
+    color:#e6eef6;
+    min-height:100vh;
+    display:flex;
+    align-items:flex-start;
+    justify-content:center;
+    padding:36px;
+  }
+  .wrap{
+    width:100%;
+    max-width:980px;
+  }
+  header{
+    display:flex;
+    gap:16px;
+    align-items:center;
+    margin-bottom:18px;
+  }
+  header h1{margin:0;font-size:20px}
+  .controls{
+    margin-left:auto;
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:var(--radius);
+    padding:18px;
+    box-shadow: 0 6px 18px rgba(2,6,23,0.6);
+    border: 1px solid rgba(255,255,255,0.03);
+  }
+  .grid{
+    display:grid;
+    grid-template-columns: 1fr 360px;
+    gap:18px;
+  }
+
+  /* New todo form */
+  form#newTodo{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  input[type="text"], input[type="date"], select, textarea {
+    background:var(--glass);
+    border:1px solid rgba(255,255,255,0.04);
+    padding:10px 12px;
+    border-radius:10px;
+    color:inherit;
+    outline:none;
+  }
+  textarea{resize:vertical; min-height:64px}
+  .row{display:flex; gap:8px}
+  .row .flex{flex:1}
+
+  button{
+    background:linear-gradient(90deg,var(--accent), #5fd3b0);
+    border:0;
+    color:#042018;
+    padding:10px 12px;
+    border-radius:10px;
+    cursor:pointer;
+    font-weight:600;
+  }
+  button.ghost{
+    background:transparent;
+    border:1px solid rgba(255,255,255,0.06);
+    color:var(--muted);
+  }
+  .muted{color:var(--muted); font-size:13px}
+
+  /* Todo list */
+  ul.todos{list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px; max-height:64vh; overflow:auto; padding-right:6px;}
+  li.todo{
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+    padding:12px;
+    border-radius:10px;
+    background:rgba(255,255,255,0.01);
+    border:1px solid rgba(255,255,255,0.02);
+  }
+  li.todo .left{
+    display:flex; gap:12px; align-items:center;
+    width:36px;
+  }
+  .checkbtn{
+    width:28px; height:28px; border-radius:8px; background:rgba(255,255,255,0.02); display:grid; place-items:center; cursor:pointer; border:1px solid rgba(255,255,255,0.02);
+  }
+  .title{font-weight:600}
+  .desc{color:var(--muted); font-size:13px}
+  .meta{display:flex; gap:8px; align-items:center; margin-top:6px; font-size:12px; color:var(--muted)}
+
+  .actions{margin-left:auto; display:flex; gap:8px}
+  .pill{padding:6px 8px; border-radius:999px; background:rgba(255,255,255,0.02); font-size:12px}
+
+  /* small config */
+  .config{display:flex; flex-direction:column; gap:8px}
+  label{font-size:13px; color:var(--muted); display:flex; flex-direction:column; gap:6px}
+  .small{font-size:13px; color:var(--muted)}
+
+  footer{margin-top:12px; color:var(--muted); font-size:13px; text-align:center}
+  .status{padding:10px;border-radius:10px;background:rgba(255,255,255,0.02); color:var(--muted); font-size:13px}
+  .danger{background:linear-gradient(90deg,#3a1111, #2a0b0b); color:#ffd7d7}
+
+  /* responsive */
+  @media (max-width:900px){
+    .grid{grid-template-columns:1fr; }
+    .controls{display:none}
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>RESTful To-Do List</h1>
+      <div class="muted">Complete CRUD frontend • Edit, mark done, delete • Mock mode included</div>
+      <div class="controls">
+        <button id="refreshBtn" class="ghost" title="Refresh list">Refresh</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <section aria-labelledby="create-heading">
+          <h2 id="create-heading" style="margin-top:0">Create new task</h2>
+
+          <form id="newTodo" autocomplete="off">
+            <label>
+              Title
+              <input required id="newTitle" type="text" placeholder="Buy groceries" />
+            </label>
+
+            <label>
+              Description
+              <textarea id="newDesc" placeholder="Notes, store, brand..."></textarea>
+            </label>
+
+            <div class="row">
+              <label class="flex">
+                Due date
+                <input id="newDue" type="date" />
+              </label>
+              <label style="width:140px">
+                Priority
+                <select id="newPriority">
+                  <option value="low">Low</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </label>
+            </div>
+
+            <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+              <button id="createBtn" type="submit">Add task</button>
+              <button id="clearBtn" type="button" class="ghost">Clear</button>
+              <div style="margin-left:auto" class="small muted" id="countSummary">—</div>
+            </div>
+          </form>
+        </section>
+
+        <hr style="opacity:0.06;margin:14px 0">
+
+        <section>
+          <h3 style="margin:0 0 8px 0">Tasks</h3>
+          <div id="status" class="status">Loading...</div>
+          <ul id="todos" class="todos" aria-live="polite"></ul>
+        </section>
+      </div>
+
+      <aside class="card">
+        <h3 style="margin-top:0">Configuration</h3>
+
+        <div class="config">
+          <label>
+            API Base URL
+            <input id="apiBase" type="text" placeholder="https://api.example.com" value="/api" />
+            <div class="small muted">Examples: <code>/api</code> or <code>https://mydomain.com/api</code></div>
+          </label>
+
+          <label>
+            Auth token (optional)
+            <input id="authToken" type="text" placeholder="Bearer token" />
+            <div class="small muted">If your API needs Authorization, put the token here (will be sent in Authorization header).</div>
+          </label>
+
+          <label style="display:flex;align-items:center;gap:8px">
+            <input id="mockMode" type="checkbox" />
+            <div>Mock mode (no backend) — runs a local fake API in browser</div>
+          </label>
+
+          <div style="display:flex;gap:8px;align-items:center">
+            <button id="saveConfig" class="ghost">Save</button>
+            <button id="resetConfig" class="ghost">Reset</button>
+          </div>
+
+          <hr style="opacity:0.06">
+
+          <div class="muted small">
+            Expected REST API endpoints (common shapes):
+            <ul style="margin:8px 0 0 18px">
+              <li><code>GET /todos</code> — list all todos</li>
+              <li><code>POST /todos</code> — create new todo (body: JSON)</li>
+              <li><code>PUT /todos/:id</code> or <code>PATCH /todos/:id</code> — update</li>
+              <li><code>DELETE /todos/:id</code> — delete</li>
+            </ul>
+          </div>
+        </div>
+
+        <footer>
+          <div style="margin-top:12px" class="muted small">Built with ❤️ — edit the JS to adapt to your API shape</div>
+        </footer>
+      </aside>
+    </div>
+  </div>
+
+<script>
+/*
+  Full frontend to connect to a RESTful ToDo API.
+  - Supports: list, create, update (toggle complete & edit), delete.
+  - Configurable API base & auth token.
+  - Mock mode (localStorage) when no backend available.
+  - Replace the API endpoints or adjust request/response shapes if needed.
+*/
+
+(() => {
+  const els = {
+    todos: document.getElementById('todos'),
+    status: document.getElementById('status'),
+    newTodoForm: document.getElementById('newTodo'),
+    newTitle: document.getElementById('newTitle'),
+    newDesc: document.getElementById('newDesc'),
+    newDue: document.getElementById('newDue'),
+    newPriority: document.getElementById('newPriority'),
+    createBtn: document.getElementById('createBtn'),
+    clearBtn: document.getElementById('clearBtn'),
+    apiBase: document.getElementById('apiBase'),
+    authToken: document.getElementById('authToken'),
+    mockMode: document.getElementById('mockMode'),
+    saveConfig: document.getElementById('saveConfig'),
+    resetConfig: document.getElementById('resetConfig'),
+    refreshBtn: document.getElementById('refreshBtn'),
+    countSummary: document.getElementById('countSummary')
+  };
+
+  // Load saved config from localStorage
+  const STORAGE_KEYS = {CONFIG:'todo_cfg_v1', MOCK_DATA:'todo_mock_v1'};
+  function loadConfig(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEYS.CONFIG);
+      if(!raw) return;
+      const cfg = JSON.parse(raw);
+      els.apiBase.value = cfg.apiBase || '/api';
+      els.authToken.value = cfg.authToken || '';
+      els.mockMode.checked = !!cfg.mockMode;
+    }catch(e){ console.warn('loadConfig failed',e) }
+  }
+  function saveConfig(){
+    const cfg = {apiBase: els.apiBase.value.trim() || '/api', authToken: els.authToken.value.trim(), mockMode: els.mockMode.checked};
+    localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(cfg));
+    showStatus('Configuration saved', 'ok');
+    setupApi(); // re-init API client
+  }
+  function resetConfig(){
+    localStorage.removeItem(STORAGE_KEYS.CONFIG);
+    els.apiBase.value = '/api';
+    els.authToken.value = '';
+    els.mockMode.checked = false;
+    showStatus('Configuration reset', 'ok');
+    setupApi();
+  }
+
+  els.saveConfig.addEventListener('click', saveConfig);
+  els.resetConfig.addEventListener('click', resetConfig);
+
+  // UI helpers
+  function showStatus(text, type='info'){
+    els.status.textContent = text;
+    els.status.className = 'status' + (type==='error' ? ' danger' : '');
+  }
+
+  function isoDate(d){
+    if(!d) return '';
+    const dt = new Date(d);
+    if(isNaN(dt)) return '';
+    const yyyy = dt.getFullYear();
+    const mm = String(dt.getMonth()+1).padStart(2,'0');
+    const dd = String(dt.getDate()).padStart(2,'0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  // ====== API client layer (abstracts fetch vs mock) ======
+  let API = null;
+
+  function setupApi(){
+    const base = els.apiBase.value.trim() || '/api';
+    const token = els.authToken.value.trim() || null;
+    const useMock = els.mockMode.checked;
+
+    if(useMock){
+      API = createMockApi();
+      showStatus('Mock mode enabled — using in-browser data', 'ok');
+    } else {
+      API = createFetchApi(base, token);
+      showStatus('Using API: ' + base, 'ok');
+    }
+
+    // refresh the list whenever config changes
+    fetchAndRenderTodos().catch(err=>console.error(err));
+  }
+
+  // Create API that communicates with real server using fetch
+  function createFetchApi(baseUrl, token){
+    // ensure no trailing slash
+    const base = baseUrl.replace(/\/+$/,'');
+    const headers = (extra={}) => {
+      const h = Object.assign({'Content-Type':'application/json'}, extra);
+      if(token) h['Authorization'] = token;
+      return h;
+    };
+
+    async function request(path, opts = {}){
+      const url = path.startsWith('http') ? path : (base + path);
+      const res = await fetch(url, opts);
+      if(!res.ok){
+        const text = await res.text().catch(()=>null);
+        let msg = `HTTP ${res.status} ${res.statusText}`;
+        try {
+          const j = JSON.parse(text || '{}');
+          msg = j.message || msg;
+        } catch(e){}
+        const err = new Error(msg);
+        err.status = res.status;
+        throw err;
+      }
+      // try parsing JSON (some endpoints may return empty)
+      const contentType = res.headers.get('content-type') || '';
+      if(contentType.includes('application/json')){
+        return res.json();
+      } else {
+        return null;
+      }
+    }
+
+    return {
+      async list(){
+        // expect /todos -> [{id,title,desc,due,priority,completed}]
+        return await request('/todos', {method:'GET', headers:headers()});
+      },
+      async create(payload){
+        return await request('/todos', {method:'POST', headers:headers(), body: JSON.stringify(payload)});
+      },
+      async update(id, payload){
+        return await request(`/todos/${encodeURIComponent(id)}`, {method:'PUT', headers:headers(), body: JSON.stringify(payload)});
+      },
+      async patch(id, payload){
+        return await request(`/todos/${encodeURIComponent(id)}`, {method:'PATCH', headers:headers(), body: JSON.stringify(payload)});
+      },
+      async remove(id){
+        return await request(`/todos/${encodeURIComponent(id)}`, {method:'DELETE', headers:headers()});
+      }
+    };
+  }
+
+  // Create a mock API that stores data in localStorage (useful for development)
+  function createMockApi(){
+    // mock data structure: array of {id,title,desc,due,priority,completed,createdAt}
+    function load(){
+      const raw = localStorage.getItem(STORAGE_KEYS.MOCK_DATA);
+      if(!raw) return defaultData();
+      try{ return JSON.parse(raw) }catch(e){ return defaultData(); }
+    }
+    function save(arr){ localStorage.setItem(STORAGE_KEYS.MOCK_DATA, JSON.stringify(arr)); }
+
+    function defaultData(){
+      const t = Date.now();
+      const sample = [
+        {id: '1', title:'Buy milk', desc:'2L low-fat', due: isoDate(t + 24*3600*1000), priority:'medium', completed:false, createdAt:t - 86400000},
+        {id: '2', title:'Read PR #45', desc:'Review backend changes', due:'', priority:'high', completed:false, createdAt:t - 3600000},
+        {id: '3', title:'Pay rent', desc:'Use bank transfer', due: isoDate(t + 5*24*3600*1000), priority:'high', completed:true, createdAt:t - 6*24*3600*1000},
+      ];
+      save(sample);
+      return sample;
+    }
+
+    return {
+      async list(){
+        await wait(120);
+        return load();
+      },
+      async create(payload){
+        await wait(200);
+        const arr = load();
+        const id = String(Date.now() + Math.floor(Math.random()*1000));
+        const item = {
+          id,
+          title: payload.title || 'Untitled',
+          desc: payload.desc || '',
+          due: payload.due || '',
+          priority: payload.priority || 'medium',
+          completed: !!payload.completed,
+          createdAt: Date.now()
+        };
+        arr.unshift(item);
+        save(arr);
+        return item;
+      },
+      async update(id, payload){
+        await wait(200);
+        const arr = load();
+        const idx = arr.findIndex(x=>x.id==id);
+        if(idx===-1) throw new Error('Not found');
+        arr[idx] = Object.assign({}, arr[idx], payload);
+        save(arr);
+        return arr[idx];
+      },
+      async patch(id, payload){
+        return this.update(id, payload);
+      },
+      async remove(id){
+        await wait(120);
+        let arr = load();
+        arr = arr.filter(x=>x.id!=id);
+        save(arr);
+        return {success:true};
+      }
+    };
+
+    function wait(ms){ return new Promise(res=>setTimeout(res, ms)); }
+  }
+
+  // ====== Rendering & interactions ======
+
+  async function fetchAndRenderTodos(){
+    showStatus('Loading tasks...');
+    try {
+      const data = await API.list();
+      if(!Array.isArray(data)) throw new Error('API returned unexpected data (expected array)');
+      renderTodos(data);
+      showStatus(`Loaded ${data.length} tasks`);
+    } catch (err) {
+      console.error(err);
+      showStatus('Failed to load tasks: ' + (err.message || err), 'error');
+      renderTodos([]);
+    }
+  }
+
+  function renderTodos(items){
+    els.todos.innerHTML = '';
+    if(!items || items.length === 0){
+      els.todos.innerHTML = '<li class="muted">No tasks yet — add one using the form.</li>';
+      els.countSummary.textContent = '0 tasks';
+      return;
+    }
+
+    // sort: incomplete first, then by priority+createdAt
+    const priorityRank = {high:0, medium:1, low:2};
+    items.sort((a,b)=>{
+      if((a.completed?1:0)!==(b.completed?1:0)) return (a.completed?1:0) - (b.completed?1:0);
+      const pa = priorityRank[a.priority || 'medium'] ?? 1;
+      const pb = priorityRank[b.priority || 'medium'] ?? 1;
+      if(pa !== pb) return pa - pb;
+      return (b.createdAt||0) - (a.createdAt||0);
+    });
+
+    let done=0;
+    for(const item of items){
+      if(item.completed) done++;
+      const li = document.createElement('li');
+      li.className = 'todo';
+      li.dataset.id = item.id;
+
+      li.innerHTML = `
+        <div class="left">
+          <div class="checkbtn" title="${item.completed ? 'Mark incomplete' : 'Mark complete'}">
+            ${item.completed ? '✔' : ''}
+          </div>
+        </div>
+        <div class="body" style="flex:1">
+          <div style="display:flex;gap:10px;align-items:center">
+            <div class="title" ${item.completed ? 'style="text-decoration:line-through; opacity:0.65"' : ''}>${escapeHtml(item.title)}</div>
+            <div class="pill">${escapeHtml(item.priority || 'medium')}</div>
+            ${item.due ? `<div class="muted small">Due ${escapeHtml(item.due)}</div>` : ''}
+          </div>
+          ${item.desc ? `<div class="desc">${escapeHtml(item.desc)}</div>` : ''}
+          <div class="meta">
+            <div class="muted">#${escapeHtml(item.id)}</div>
+            <div class="muted">${item.createdAt ? new Date(item.createdAt).toLocaleString() : ''}</div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="ghost editBtn" title="Edit">Edit</button>
+          <button class="ghost deleteBtn" title="Delete">Delete</button>
+        </div>
+      `;
+
+      // events
+      const checkBtn = li.querySelector('.checkbtn');
+      checkBtn.addEventListener('click', () => toggleComplete(item, li));
+
+      li.querySelector('.editBtn').addEventListener('click', () => openEditDialog(item, li));
+      li.querySelector('.deleteBtn').addEventListener('click', () => doDelete(item, li));
+
+      els.todos.appendChild(li);
+    }
+
+    els.countSummary.textContent = `${items.length} tasks — ${done} done`;
+  }
+
+  // escape to prevent HTML injection in mock UI
+  function escapeHtml(s){
+    if(!s && s !== 0) return '';
+    return String(s)
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;');
+  }
+
+  // Toggle complete/uncomplete
+  async function toggleComplete(item, li){
+    const newState = !item.completed;
+    // optimistic UI
+    item.completed = newState;
+    renderTodosFromCurrentUI();
+    try {
+      // try PATCH first then PUT
+      if(API.patch){
+        await API.patch(item.id, {completed: newState});
+      } else {
+        await API.update(item.id, Object.assign({}, item, {completed:newState}));
+      }
+      showStatus(`Updated "${item.title}"`);
+    } catch(err){
+      console.error(err);
+      // revert
+      item.completed = !newState;
+      renderTodosFromCurrentUI();
+      showStatus('Failed to update: ' + (err.message||err), 'error');
+    }
+  }
+
+  // Read current UI items into an array and re-render (cheap)
+  function renderTodosFromCurrentUI(){
+    // We could request from API again, but to keep UX snappy we'll rebuild from DOM dataset or re-fetch.
+    // Simpler: call fetchAndRenderTodos if you want authoritative state:
+    fetchAndRenderTodos(); // one-liner ensures canonical state
+  }
+
+  // Delete
+  async function doDelete(item, li){
+    if(!confirm(`Delete "${item.title}"? This cannot be undone.`)) return;
+    try {
+      await API.remove(item.id);
+      showStatus(`Deleted "${item.title}"`);
+      fetchAndRenderTodos();
+    } catch(err){
+      console.error(err);
+      showStatus('Delete failed: ' + (err.message||err), 'error');
+    }
+  }
+
+  // Edit dialog (simple inline transform)
+  function openEditDialog(item, li){
+    // replace body with editable form
+    const body = li.querySelector('.body');
+    body.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <input class="edtTitle" value="${escapeHtml(item.title)}" />
+        <textarea class="edtDesc">${escapeHtml(item.desc)}</textarea>
+        <div style="display:flex;gap:8px">
+          <input type="date" class="edtDue" value="${item.due || ''}" />
+          <select class="edtPriority">
+            <option ${item.priority==='low'?'selected':''} value="low">Low</option>
+            <option ${item.priority==='medium'?'selected':''} value="medium">Medium</option>
+            <option ${item.priority==='high'?'selected':''} value="high">High</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="ghost cancelEdit">Cancel</button>
+          <button class="saveEdit">Save</button>
+        </div>
+      </div>
+    `;
+
+    li.querySelector('.cancelEdit').addEventListener('click', ()=>fetchAndRenderTodos());
+    li.querySelector('.saveEdit').addEventListener('click', async ()=>{
+      const t = li.querySelector('.edtTitle').value.trim();
+      const d = li.querySelector('.edtDesc').value.trim();
+      const due = li.querySelector('.edtDue').value || '';
+      const p = li.querySelector('.edtPriority').value || 'medium';
+      if(!t){ alert('Title required'); return; }
+
+      const payload = { title: t, desc: d, due, priority: p };
+      try{
+        await API.update(item.id, payload);
+        showStatus(`Saved "${t}"`);
+        fetchAndRenderTodos();
+      }catch(err){
+        console.error(err);
+        showStatus('Save failed: ' + (err.message||err), 'error');
+      }
+    });
+  }
+
+  // ====== Form handling ======
+  els.newTodoForm.addEventListener('submit', async (ev)=>{
+    ev.preventDefault();
+    const title = els.newTitle.value.trim();
+    if(!title) { alert('Title required'); return; }
+    const payload = {
+      title,
+      desc: els.newDesc.value.trim(),
+      due: els.newDue.value || '',
+      priority: els.newPriority.value || 'medium',
+      completed: false
+    };
+
+    els.createBtn.disabled = true;
+    try{
+      const created = await API.create(payload);
+      showStatus(`Created "${created.title}"`);
+      els.newTodoForm.reset();
+      fetchAndRenderTodos();
+    } catch(err){
+      console.error(err);
+      showStatus('Create failed: ' + (err.message || err), 'error');
+    } finally{
+      els.createBtn.disabled = false;
+    }
+  });
+
+  els.clearBtn.addEventListener('click', ()=>els.newTodoForm.reset());
+  els.refreshBtn.addEventListener('click', ()=>fetchAndRenderTodos());
+
+  // bootstrap
+  loadConfig();
+  setupApi();
+
+  // initial load already triggered by setupApi
+
+})();
+</script>
+</body>
+</html>
