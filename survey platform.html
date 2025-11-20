@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SurveySphere - Platform</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Google Font 'Inter' -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Use Inter as the default sans-serif font */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Hide pages by default */
+        .page {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <!-- Toast Notification -->
+    <div id="toast-notification" class="fixed top-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg transition-transform translate-x-full duration-300 ease-in-out z-50">
+        Survey saved successfully!
+    </div>
+
+    <!-- Main Container -->
+    <div class="container mx-auto p-4 md:p-8 max-w-6xl">
+
+        <!-- Header -->
+        <header class="bg-white shadow-md rounded-lg p-5 mb-8 flex justify-between items-center">
+            <h1 class="text-3xl font-bold text-blue-600">SurveySphere</h1>
+            <button id="home-button" class="text-blue-600 font-semibold py-2 px-4 rounded-lg hover:bg-blue-50 transition-colors duration-200">
+                Dashboard
+            </button>
+        </header>
+
+        <!-- =========== PAGE: Dashboard =========== -->
+        <main id="page-dashboard" class="page">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-semibold">Your Surveys</h2>
+                <button id="create-new-survey-btn" class="bg-blue-600 text-white font-semibold py-2 px-5 rounded-lg shadow-sm hover:bg-blue-700 transition-colors duration-200">
+                    Create New Survey
+                </button>
+            </div>
+            
+            <!-- Survey List -->
+            <div id="survey-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Survey cards will be dynamically inserted here -->
+            </div>
+        </main>
+
+        <!-- =========== PAGE: Survey Creator =========== -->
+        <main id="page-creator" class="page">
+            <div class="bg-white p-6 md:p-8 rounded-lg shadow-md">
+                <h2 class="text-2xl font-semibold mb-6">Survey Creator</h2>
+                
+                <!-- Survey Title -->
+                <div class="mb-6">
+                    <label for="survey-title-input" class="block text-sm font-medium text-gray-700 mb-1">Survey Title</label>
+                    <input type="text" id="survey-title-input" placeholder="E.g., Customer Satisfaction Survey" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+
+                <!-- Question Builder Container -->
+                <div id="question-builder-container" class="space-y-6">
+                    <!-- Dynamic questions will be added here -->
+                </div>
+
+                <!-- Add Question Buttons -->
+                <div class="mt-8 pt-6 border-t border-gray-200 flex flex-wrap gap-4">
+                    <button data-type="mc" class="add-question-btn bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors">
+                        + Add Multiple Choice
+                    </button>
+                    <button data-type="text" class="add-question-btn bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors">
+                        + Add Text
+                    </button>
+                    <button data-type="rating" class="add-question-btn bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors">
+                        + Add Rating (1-5)
+                    </button>
+                </div>
+
+                <!-- Save Survey Button -->
+                <div class="mt-8 text-right">
+                    <button id="save-survey-btn" class="bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg shadow-sm hover:bg-blue-700 transition-colors duration-200">
+                        Save Survey
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- =========== PAGE: Survey Taker =========== -->
+        <main id="page-taker" class="page">
+            <div class="bg-white p-6 md:p-8 rounded-lg shadow-md max-w-3xl mx-auto">
+                <h2 id="survey-taker-title" class="text-2xl font-semibold mb-2">...</h2>
+                <p class="text-gray-600 mb-6">Please fill out the survey below.</p>
+                
+                <form id="survey-form" class="space-y-8">
+                    <!-- Survey questions will be dynamically inserted here -->
+                </form>
+
+                <div class="mt-8 text-right">
+                    <button id="submit-survey-btn" class="bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-sm hover:bg-green-700 transition-colors duration-200">
+                        Submit Survey
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- =========== PAGE: Results =========== -->
+        <main id="page-results" class="page">
+            <div class="bg-white p-6 md:p-8 rounded-lg shadow-md">
+                <h2 id="survey-results-title" class="text-2xl font-semibold mb-2">...</h2>
+                <p id="survey-results-count" class="text-gray-600 mb-6">...</p>
+
+                <div id="survey-results-container" class="space-y-8">
+                    <!-- Survey results will be dynamically inserted here -->
+                </div>
+            </div>
+        </main>
+
+    </div> <!-- /end container -->
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- STATE MANAGEMENT ---
+            let questionIdCounter = 0;
+            let currentSurveyId = null; // Used for editing/taking/viewing
+            
+            // Mock Data
+            let surveys = [
+                {
+                    id: 1,
+                    title: "Customer Satisfaction Survey",
+                    questions: [
+                        { id: 1, type: "rating", text: "How satisfied are you with our service?" },
+                        { id: 2, type: "mc", text: "How did you hear about us?", options: ["Social Media", "Friend", "Advertisement", "Other"] },
+                        { id: 3, type: "text", text: "What can we do to improve?" }
+                    ],
+                    responses: [
+                        { q1: 5, q2: "Social Media", q3: "More documentation." },
+                        { q1: 4, q2: "Friend", q3: "Lower prices." },
+                        { q1: 5, q2: "Advertisement", q3: "Nothing, it's great!" }
+                    ]
+                },
+                {
+                    id: 2,
+                    title: "Workplace Feedback",
+                    questions: [
+                        { id: 4, type: "mc", text: "Which department do you work in?", options: ["Engineering", "Marketing", "Sales", "HR"] },
+                        { id: 5, type: "rating", text: "How would you rate your work-life balance?" },
+                        { id: 6, type: "text", text: "Any suggestions for company culture?" }
+                    ],
+                    responses: [
+                        { q4: "Engineering", q5: 3, q6: "More team events." },
+                        { q4: "Marketing", q5: 5, q6: "" },
+                    ]
+                }
+            ];
+
+            // --- DOM Elements ---
+            const pages = {
+                dashboard: document.getElementById('page-dashboard'),
+                creator: document.getElementById('page-creator'),
+                taker: document.getElementById('page-taker'),
+                results: document.getElementById('page-results')
+            };
+
+            const surveyList = document.getElementById('survey-list');
+            const homeButton = document.getElementById('home-button');
+            const createNewSurveyBtn = document.getElementById('create-new-survey-btn');
+            
+            // Creator Page
+            const surveyTitleInput = document.getElementById('survey-title-input');
+            const questionBuilderContainer = document.getElementById('question-builder-container');
+            const addQuestionBtns = document.querySelectorAll('.add-question-btn');
+            const saveSurveyBtn = document.getElementById('save-survey-btn');
+
+            // Taker Page
+            const surveyTakerTitle = document.getElementById('survey-taker-title');
+            const surveyForm = document.getElementById('survey-form');
+            const submitSurveyBtn = document.getElementById('submit-survey-btn');
+
+            // Results Page
+            const surveyResultsTitle = document.getElementById('survey-results-title');
+            const surveyResultsCount = document.getElementById('survey-results-count');
+            const surveyResultsContainer = document.getElementById('survey-results-container');
+            
+            // Toast
+            const toast = document.getElementById('toast-notification');
+
+            // --- PAGE NAVIGATION ---
+            function showPage(pageName) {
+                // Hide all pages
+                Object.values(pages).forEach(page => page.style.display = 'none');
+                // Show the target page
+                if (pages[pageName]) {
+                    pages[pageName].style.display = 'block';
+                }
+            }
+            
+            function showToast(message, type = 'success') {
+                toast.textContent = message;
+                toast.classList.toggle('bg-green-500', type === 'success');
+                toast.classList.toggle('bg-red-500', type === 'error');
+                
+                toast.classList.remove('translate-x-full');
+                setTimeout(() => {
+                    toast.classList.add('translate-x-full');
+                }, 3000);
+            }
+
+            // --- DASHBOARD LOGIC ---
+            function renderDashboard() {
+                surveyList.innerHTML = ''; // Clear existing list
+                
+                if (surveys.length === 0) {
+                    surveyList.innerHTML = `<p class="text-gray-500 col-span-full">You haven't created any surveys yet.</p>`;
+                    return;
+                }
+
+                surveys.forEach(survey => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-white p-5 rounded-lg shadow-sm border border-gray-200';
+                    card.innerHTML = `
+                        <h3 class="font-semibold text-lg text-gray-900">${survey.title}</h3>
+                        <p class="text-gray-600 text-sm mt-1">${survey.questions.length} Questions | ${survey.responses.length} Responses</p>
+                        <div class="mt-4 flex flex-wrap gap-2">
+                            <button data-id="${survey.id}" class="take-survey-btn bg-green-500 text-white text-sm font-medium py-1 px-3 rounded-md hover:bg-green-600 transition-colors">
+                                Take
+                            </button>
+                            <button data-id="${survey.id}" class="view-results-btn bg-purple-500 text-white text-sm font-medium py-1 px-3 rounded-md hover:bg-purple-600 transition-colors">
+                                Results
+                            </button>
+                            <button data-id="${survey.id}" class="edit-survey-btn bg-yellow-500 text-white text-sm font-medium py-1 px-3 rounded-md hover:bg-yellow-600 transition-colors">
+                                Edit
+                            </button>
+                             <button data-id="${survey.id}" class="delete-survey-btn bg-red-500 text-white text-sm font-medium py-1 px-3 rounded-md hover:bg-red-600 transition-colors">
+                                Delete
+                            </button>
+                        </div>
+                    `;
+                    surveyList.appendChild(card);
+                });
+
+                // Add event listeners to new buttons
+                addDashboardButtonListeners();
+            }
+
+            function addDashboardButtonListeners() {
+                document.querySelectorAll('.take-survey-btn').forEach(btn => {
+                    btn.onclick = (e) => {
+                        currentSurveyId = parseInt(e.target.dataset.id);
+                        renderSurveyTaker();
+                        showPage('taker');
+                    };
+                });
+                
+                document.querySelectorAll('.view-results-btn').forEach(btn => {
+                    btn.onclick = (e) => {
+                        currentSurveyId = parseInt(e.target.dataset.id);
+                        renderSurveyResults();
+                        showPage('results');
+                    };
+                });
+
+                document.querySelectorAll('.edit-survey-btn').forEach(btn => {
+                    btn.onclick = (e) => {
+                        currentSurveyId = parseInt(e.target.dataset.id);
+                        renderSurveyCreator(true);
+                        showPage('creator');
+                    };
+                });
+                
+                document.querySelectorAll('.delete-survey-btn').forEach(btn => {
+                    btn.onclick = (e) => {
+                        const idToDelete = parseInt(e.target.dataset.id);
+                        surveys = surveys.filter(s => s.id !== idToDelete);
+                        renderDashboard();
+                        showToast("Survey deleted.", 'success');
+                    };
+                });
+            }
+
+            // --- SURVEY CREATOR LOGIC ---
+            
+            function renderSurveyCreator(isEditing = false) {
+                // Clear the form
+                surveyTitleInput.value = '';
+                questionBuilderContainer.innerHTML = '';
+                questionIdCounter = 0; // Reset counter
+                
+                const survey = surveys.find(s => s.id === currentSurveyId);
+
+                if (isEditing && survey) {
+                    surveyTitleInput.value = survey.title;
+                    survey.questions.forEach(q => {
+                        addQuestionToBuilder(q.type, q);
+                    });
+                } else {
+                    // Start with one blank question
+                    addQuestionToBuilder('mc');
+                }
+            }
+            
+            function addQuestionToBuilder(type, questionData = null) {
+                questionIdCounter++;
+                const qId = `q-${questionIdCounter}`;
+                
+                const questionWrapper = document.createElement('div');
+                questionWrapper.className = 'p-4 border border-gray-200 rounded-lg bg-gray-50';
+                questionWrapper.setAttribute('data-q-id', qId);
+                questionWrapper.setAttribute('data-q-type', type);
+
+                let optionsHTML = '';
+                if (type === 'mc') {
+                    let optionsList = ['Option 1']; // Default
+                    if(questionData && questionData.options) {
+                        optionsList = questionData.options;
+                    }
+                    
+                    optionsHTML = `
+                        <div class="mt-3 space-y-2 pl-4" data-role="options-container">
+                            ${optionsList.map((opt, index) => `
+                                <div class="flex items-center" data-role="option-wrapper">
+                                    <input type="text" value="${opt}" class="w-full text-sm p-2 border border-gray-300 rounded-md" placeholder="Option text">
+                                    <button data-role="remove-option" class="ml-2 text-red-500 hover:text-red-700 text-xl font-bold">&times;</button>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button data-role="add-option" class="mt-2 text-sm text-blue-600 hover:text-blue-800 font-medium">+ Add Option</button>
+                    `;
+                } else if (type === 'text') {
+                    optionsHTML = '<textarea class="w-full p-2 border border-gray-300 rounded-md mt-2 bg-gray-100" placeholder="User will type their answer here" disabled></textarea>';
+                } else if (type === 'rating') {
+                    optionsHTML = `
+                        <div class="flex items-center justify-center space-x-2 mt-3 p-3 bg-gray-100 rounded-md">
+                            <span class="text-gray-500">1</span>
+                            ${[1,2,3,4,5].map(n => `<input type="radio" name="rating-preview-${qId}" class="form-radio text-blue-500" disabled>`).join('')}
+                            <span class="text-gray-500">5</span>
+                        </div>
+                    `;
+                }
+
+                questionWrapper.innerHTML = `
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs font-semibold uppercase text-gray-500">${type === 'mc' ? 'Multiple Choice' : type === 'text' ? 'Text Answer' : 'Rating Scale'}</span>
+                        <button data-role="remove-question" class="text-red-500 hover:text-red-700 font-bold py-1 px-2 rounded-md">&times; Remove</button>
+                    </div>
+                    <input type="text" data-role="question-text" value="${questionData ? questionData.text : ''}" class="w-full p-3 border border-gray-300 rounded-lg" placeholder="Type your question here">
+                    ${optionsHTML}
+                `;
+                
+                questionBuilderContainer.appendChild(questionWrapper);
+                addDynamicQuestionListeners(questionWrapper);
+            }
+            
+            function addDynamicQuestionListeners(questionWrapper) {
+                // Remove Question
+                questionWrapper.querySelector('[data-role="remove-question"]').onclick = () => {
+                    questionWrapper.remove();
+                };
+
+                // Add Option (for MC)
+                const addOptionBtn = questionWrapper.querySelector('[data-role="add-option"]');
+                if (addOptionBtn) {
+                    addOptionBtn.onclick = (e) => {
+                        e.preventDefault();
+                        const optionsContainer = questionWrapper.querySelector('[data-role="options-container"]');
+                        const newOption = document.createElement('div');
+                        newOption.className = 'flex items-center';
+                        newOption.setAttribute('data-role', 'option-wrapper');
+                        newOption.innerHTML = `
+                            <input type="text" class="w-full text-sm p-2 border border-gray-300 rounded-md" placeholder="Option text">
+                            <button data-role="remove-option" class="ml-2 text-red-500 hover:text-red-700 text-xl font-bold">&times;</button>
+                        `;
+                        newOption.querySelector('[data-role="remove-option"]').onclick = () => newOption.remove();
+                        optionsContainer.appendChild(newOption);
+                    };
+                }
+                
+                // Remove Option (for MC)
+                questionWrapper.querySelectorAll('[data-role="remove-option"]').forEach(btn => {
+                    btn.onclick = (e) => {
+                        e.target.closest('[data-role="option-wrapper"]').remove();
+                    };
+                });
+            }
+            
+            function saveSurvey() {
+                const title = surveyTitleInput.value.trim();
+                if (!title) {
+                    showToast("Please enter a survey title.", 'error');
+                    return;
+                }
+                
+                const questionElements = questionBuilderContainer.querySelectorAll('[data-q-id]');
+                if (questionElements.length === 0) {
+                    showToast("Please add at least one question.", 'error');
+                    return;
+                }
+
+                let newQuestions = [];
+                let hasError = false;
+                
+                questionElements.forEach((qEl, index) => {
+                    const text = qEl.querySelector('[data-role="question-text"]').value.trim();
+                    const type = qEl.dataset.qType;
+                    
+                    if (!text) {
+                        hasError = true;
+                    }
+
+                    const question = { id: index + 1, text, type };
+
+                    if (type === 'mc') {
+                        const options = [];
+                        qEl.querySelectorAll('[data-role="options-container"] input[type="text"]').forEach(optIn => {
+                            const optText = optIn.value.trim();
+                            if(optText) {
+                                options.push(optText);
+                            }
+                        });
+                        
+                        if (options.length < 2) {
+                            hasError = true;
+                        }
+                        question.options = options;
+                    }
+                    newQuestions.push(question);
+                });
+
+                if (hasError) {
+                    showToast("Please fill out all question text and add at least 2 options for MC.", 'error');
+                    return;
+                }
+                
+                if (currentSurveyId) {
+                    // Editing existing survey
+                    const surveyIndex = surveys.findIndex(s => s.id === currentSurveyId);
+                    if (surveyIndex !== -1) {
+                        surveys[surveyIndex].title = title;
+                        surveys[surveyIndex].questions = newQuestions;
+                    }
+                } else {
+                    // Creating new survey
+                    const newId = surveys.length > 0 ? Math.max(...surveys.map(s => s.id)) + 1 : 1;
+                    const newSurvey = {
+                        id: newId,
+                        title: title,
+                        questions: newQuestions,
+                        responses: []
+                    };
+                    surveys.push(newSurvey);
+                }
+
+                showToast("Survey saved successfully!", 'success');
+                renderDashboard();
+                showPage('dashboard');
+            }
+            
+            // --- SURVEY TAKER LOGIC ---
+            function renderSurveyTaker() {
+                const survey = surveys.find(s => s.id === currentSurveyId);
+                if (!survey) {
+                    showPage('dashboard');
+                    return;
+                }
+                
+                surveyTakerTitle.textContent = survey.title;
+                surveyForm.innerHTML = ''; // Clear form
+                
+                survey.questions.forEach((q, index) => {
+                    const qWrapper = document.createElement('div');
+                    qWrapper.className = 'py-4 border-b border-gray-200';
+                    let questionHTML = `
+                        <label class="block text-lg font-medium text-gray-900 mb-3">${index + 1}. ${q.text}</label>
+                    `;
+                    
+                    const inputName = `q-${q.id}`;
+
+                    if (q.type === 'mc') {
+                        questionHTML += '<div class="space-y-2">';
+                        q.options.forEach((opt, optIndex) => {
+                            questionHTML += `
+                                <label class="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                                    <input type="radio" name="${inputName}" value="${opt}" class="form-radio h-5 w-5 text-blue-600 focus:ring-blue-500">
+                                    <span class="ml-3 text-gray-700">${opt}</span>
+                                </label>
+                            `;
+                        });
+                        questionHTML += '</div>';
+                    } else if (q.type === 'text') {
+                        questionHTML += `
+                            <textarea name="${inputName}" rows="4" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Your answer..."></textarea>
+                        `;
+                    } else if (q.type === 'rating') {
+                        questionHTML += `
+                            <div class="flex items-center justify-between p-3 border rounded-lg">
+                                <span class="text-gray-600">Strongly Disagree</span>
+                                <div class="flex space-x-3">
+                                ${[1,2,3,4,5].map(n => `
+                                    <label class="flex flex-col items-center cursor-pointer">
+                                        <input type="radio" name="${inputName}" value="${n}" class="form-radio h-5 w-5 text-blue-600 focus:ring-blue-500">
+                                        <span class="text-sm mt-1">${n}</span>
+                                    </label>
+                                `).join('')}
+                                </div>
+                                <span class="text-gray-600">Strongly Agree</span>
+                            </div>
+                        `;
+                    }
+                    
+                    qWrapper.innerHTML = questionHTML;
+                    surveyForm.appendChild(qWrapper);
+                });
+            }
+
+            function submitSurvey() {
+                const survey = surveys.find(s => s.id === currentSurveyId);
+                const formData = new FormData(surveyForm);
+                const newResponse = {};
+                let allAnswered = true;
+
+                for (const q of survey.questions) {
+                    const inputName = `q-${q.id}`;
+                    const value = formData.get(inputName);
+                    
+                    if (!value) {
+                        allAnswered = false;
+                        break;
+                    }
+                    newResponse[inputName] = value;
+                }
+                
+                if (!allAnswered) {
+                    showToast("Please answer all questions.", 'error');
+                    return;
+                }
+
+                survey.responses.push(newResponse);
+                showToast("Survey submitted successfully!", 'success');
+                renderDashboard();
+                showPage('dashboard');
+            }
+
+            // --- SURVEY RESULTS LOGIC ---
+            function renderSurveyResults() {
+                const survey = surveys.find(s => s.id === currentSurveyId);
+                if (!survey) {
+                    showPage('dashboard');
+                    return;
+                }
+
+                surveyResultsTitle.textContent = `Results for: ${survey.title}`;
+                const responseCount = survey.responses.length;
+                surveyResultsCount.textContent = `Total Responses: ${responseCount}`;
+                surveyResultsContainer.innerHTML = '';
+
+                survey.questions.forEach((q, index) => {
+                    const qWrapper = document.createElement('div');
+                    qWrapper.className = 'py-4 border-b border-gray-200';
+                    let resultHTML = `<h4 class="text-lg font-medium text-gray-900 mb-3">${index + 1}. ${q.text}</h4>`;
+                    
+                    const inputName = `q-${q.id}`;
+
+                    if (responseCount === 0) {
+                        resultHTML += `<p class="text-gray-500">No responses for this question yet.</p>`;
+                        qWrapper.innerHTML = resultHTML;
+                        surveyResultsContainer.appendChild(qWrapper);
+                        return;
+                    }
+
+                    if (q.type === 'mc' || q.type === 'rating') {
+                        const counts = {};
+                        const options = (q.type === 'rating') ? ['1', '2', '3', '4', '5'] : q.options;
+                        
+                        // Initialize counts
+                        options.forEach(opt => counts[opt] = 0);
+                        
+                        // Tally responses
+                        survey.responses.forEach(res => {
+                            const answer = res[inputName];
+                            if (answer in counts) {
+                                counts[answer]++;
+                            }
+                        });
+                        
+                        // Generate bar charts
+                        resultHTML += '<div class="space-y-2">';
+                        options.forEach(opt => {
+                            const count = counts[opt];
+                            const percentage = responseCount > 0 ? (count / responseCount) * 100 : 0;
+                            resultHTML += `
+                                <div class="flex items-center">
+                                    <span class="w-1/3 text-gray-700">${opt}</span>
+                                    <div class="w-2/3 bg-gray-200 rounded-full h-6">
+                                        <div class="bg-blue-500 h-6 rounded-full text-xs font-medium text-white text-right pr-2 leading-6" style="width: ${percentage}%">
+                                            ${count} (${percentage.toFixed(0)}%)
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        resultHTML += '</div>';
+                        
+                    } else if (q.type === 'text') {
+                        resultHTML += '<div class="space-y-3 max-h-60 overflow-y-auto">';
+                        survey.responses.forEach((res, resIndex) => {
+                            const answer = res[inputName];
+                            if(answer) {
+                                resultHTML += `
+                                    <div class="p-3 bg-gray-50 border border-gray-200 rounded-md">
+                                        <span class="text-xs text-gray-500">Response ${resIndex + 1}</span>
+                                        <p class="text-gray-800 italic">"${answer}"</p>
+                                    </div>
+                                `;
+                            }
+                        });
+                        resultHTML += '</div>';
+                    }
+                    
+                    qWrapper.innerHTML = resultHTML;
+                    surveyResultsContainer.appendChild(qWrapper);
+                });
+            }
+
+            // --- INITIALIZATION ---
+            
+            // Static Button Listeners
+            homeButton.onclick = () => {
+                currentSurveyId = null;
+                renderDashboard();
+                showPage('dashboard');
+            };
+            
+            createNewSurveyBtn.onclick = () => {
+                currentSurveyId = null;
+                renderSurveyCreator(false);
+                showPage('creator');
+            };
+
+            addQuestionBtns.forEach(btn => {
+                btn.onclick = (e) => {
+                    addQuestionToBuilder(e.target.dataset.type);
+                };
+            });
+
+            saveSurveyBtn.onclick = saveSurvey;
+            submitSurveyBtn.onclick = (e) => {
+                e.preventDefault(); // Prevent form submission
+                submitSurvey();
+            };
+            
+            // Initial Load
+            renderDashboard();
+            showPage('dashboard');
+        });
+    </script>
+</body>
+</html>
